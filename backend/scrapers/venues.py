@@ -215,10 +215,10 @@ class VenueScraper(BaseScraper):
         """KLCC Convention Centre events via Playwright.
 
         KLCC's /whats-on page is a JavaScript-rendered SPA. We render it
-        with Chromium, wait for event cards to load, then parse them.
+        with Chromium and parse the body text. Events appear as alternating
+        lines: title then date (e.g. "May 29-31, 2026").
 
         If DISABLE_PLAYWRIGHT=1 is set, this returns [] silently.
-        If Playwright isn't installed, returns [] with a warning.
         """
         import os
         if os.environ.get("DISABLE_PLAYWRIGHT", "").strip() in ("1", "true", "yes"):
@@ -246,81 +246,51 @@ class VenueScraper(BaseScraper):
                     wait_until="domcontentloaded",
                     timeout=30000,
                 )
-                page.wait_for_timeout(8000)
-                for _ in range(3):
+                page.wait_for_timeout(10000)
+                for _ in range(5):
                     page.evaluate("window.scrollBy(0, 800)")
                     page.wait_for_timeout(1500)
 
-                # KLCC renders event cards as clickable blocks with title + date text
-                cards = page.eval_on_selector_all(
-                    "a[href]",
-                    """els => els.map(e => ({
-                        href: e.href,
-                        text: e.innerText.trim()
-                    })).filter(e => e.text.length > 15 && e.text.length < 500)""",
-                )
+                text = page.inner_text("body")
                 browser.close()
 
-            # Parse cards for date + title
+            # Parse alternating title/date lines from the rendered text.
+            # Pattern: a line that looks like a date follows an event title.
+            # Date format: "Mon DD-DD, YYYY" or "Mon DD, YYYY"
+            lines = [l.strip() for l in text.split("\n") if l.strip()]
+            date_re = re.compile(
+                r"^([A-Z][a-z]{2})\s+(\d{1,2})(?:\s*[-–]\s*\d{1,2})?,?\s*(\d{4})$"
+            )
             seen_titles = set()
-            for card in cards:
-                text = card.get("text", "")
-                href = card.get("href", "")
-                if not text:
-                    continue
-                # Skip nav links
-                if any(s in href.lower() for s in [
-                    "facebook", "instagram", "linkedin", "twitter",
-                    "mailto:", "tel:", "#", "javascript:",
-                    "/privacy", "/terms", "/contact",
-                ]):
-                    continue
-
-                # Extract date: try "Mon DD-DD, YYYY" or "DD Mon YYYY" or "DD/MM/YYYY"
-                start_dt = None
-                # Pattern: "Sep 29 - Oct 01, 2026" or "Oct 04, 2026"
-                m = re.search(r"([A-Za-z]+)\s+(\d{1,2})(?:\s*[-–]\s*(?:[A-Za-z]+\s+)?\d{1,2})?,?\s*(\d{4})", text)
+            i = 0
+            while i < len(lines) - 1:
+                # Check if lines[i+1] is a date
+                m = date_re.match(lines[i + 1])
                 if m:
+                    title = lines[i]
                     month_str, day_str, year_str = m.groups()
                     month = self._month_to_num(month_str)
-                    if month:
+                    if month and title and len(title) > 5:
                         try:
                             start_dt = datetime(int(year_str), month, int(day_str))
                         except ValueError:
-                            pass
-                # Fallback: DD/MM/YYYY
-                if not start_dt:
-                    dm = re.search(r"(\d{1,2})/(\d{1,2})/(\d{4})", text)
-                    if dm:
-                        d, mo, y = dm.groups()
-                        try:
-                            start_dt = datetime(int(y), int(mo), int(d))
-                        except ValueError:
-                            pass
-
-                if not start_dt:
-                    continue
-
-                # Title: first line
-                lines = [l.strip() for l in text.split("\n") if l.strip()]
-                title = lines[0] if lines else text[:100]
-                if not title or len(title) < 5:
-                    continue
-                title_key = title.lower().strip()
-                if title_key in seen_titles:
-                    continue
-                seen_titles.add(title_key)
-
-                events.append(self._create_event_dict(
-                    title=title,
-                    description=text[:500],
-                    start_datetime=start_dt,
-                    end_datetime=None,
-                    location="KLCC Convention Centre, Kuala Lumpur",
-                    organiser="KLCC Convention Centre",
-                    source_url=href if href.startswith("http") else "https://www.klccconventioncentre.com/whats-on",
-                    categories=[self._categorize(title)],
-                ))
+                            i += 1
+                            continue
+                        title_key = title.lower().strip()
+                        if title_key not in seen_titles:
+                            seen_titles.add(title_key)
+                            events.append(self._create_event_dict(
+                                title=title,
+                                start_datetime=start_dt,
+                                end_datetime=None,
+                                location="KLCC Convention Centre, Kuala Lumpur",
+                                organiser="KLCC Convention Centre",
+                                source_url="https://www.klccconventioncentre.com/whats-on",
+                                categories=[self._categorize(title)],
+                            ))
+                    i += 2  # skip both title and date line
+                else:
+                    i += 1
 
         except Exception as e:
             logger.error(f"KLCC Playwright scrape failed: {e}")
