@@ -15,8 +15,12 @@ Tradeoffs:
     won't have a date - those are silently dropped
   - Posts with implicit dates ("throughout June and July") are dropped;
     only explicit DD Month YYYY style dates survive
+
+Env: set DISABLE_PLAYWRIGHT=1 to no-op this scraper. Useful on hosts with
+<1 GB RAM (Render Free etc.) where Chromium would OOM the dyno.
 """
 import logging
+import os
 import re
 from datetime import datetime
 from pathlib import Path
@@ -108,6 +112,10 @@ class FacebookWallScraper(BaseScraper):
             return []
 
     def scrape(self) -> list[dict]:
+        if os.environ.get("DISABLE_PLAYWRIGHT", "").strip() in ("1", "true", "yes"):
+            logger.info("FacebookWall: DISABLE_PLAYWRIGHT set, skipping.")
+            return []
+
         if not self.pages:
             logger.info("FacebookWall: no pages configured, skipping.")
             return []

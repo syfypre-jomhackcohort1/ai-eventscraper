@@ -1,10 +1,13 @@
 services:
   - type: web
-    name: kv-events-agent
+    name: ai-eventscraper
     runtime: python
+    # On Render Free tier (512 MB RAM), Chromium will OOM during a
+    # scrape run. Build skips the Chromium install when DISABLE_PLAYWRIGHT
+    # is set; the runtime code paths short-circuit the same way.
     buildCommand: |
       pip install -r requirements.txt
-      python -m playwright install --with-deps chromium
+      if [ "$DISABLE_PLAYWRIGHT" != "1" ]; then python -m playwright install --with-deps chromium; fi
       cd frontend && npm install && npm run build
     startCommand: python -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT
     envVars:
@@ -24,4 +27,9 @@ services:
       - key: GEMINI_API_KEY
         sync: false
       - key: OPENAI_API_KEY
+        sync: false
+      # Set DISABLE_PLAYWRIGHT=1 on Render Free tier to avoid OOM crashes.
+      # Disables the FB Wall and Peatix scrapers (Chromium-dependent).
+      # IG via Apify and all HTTP scrapers continue to work.
+      - key: DISABLE_PLAYWRIGHT
         sync: false

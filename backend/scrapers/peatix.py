@@ -17,10 +17,14 @@ Format breakdown:
 
 We parse permissively and rely on the orchestrator to drop past events
 and out-of-region rows.
+
+Env: set DISABLE_PLAYWRIGHT=1 to no-op this scraper. Useful on hosts with
+<1 GB RAM (Render Free etc.) where Chromium would OOM the dyno.
 """
 from __future__ import annotations
 
 import logging
+import os
 import re
 from datetime import datetime
 from typing import Optional
@@ -59,6 +63,10 @@ class PeatixScraper(BaseScraper):
         super().__init__("Peatix", "https://peatix.com", delay=2.0)
 
     def scrape(self) -> list[dict]:
+        if os.environ.get("DISABLE_PLAYWRIGHT", "").strip() in ("1", "true", "yes"):
+            logger.info("Peatix: DISABLE_PLAYWRIGHT set, skipping.")
+            return []
+
         try:
             from playwright.sync_api import sync_playwright
         except ImportError:
