@@ -210,28 +210,123 @@ class VenueScraper(BaseScraper):
     # ------------------------------------------------------------------
     # KLCC Convention Centre
     # ------------------------------------------------------------------
-        """KLCC Convention Centre events.
 
-        KLCC's /whats-on page is a JavaScript-rendered SPA - httpx returns
-        an empty shell. Without a headless browser (Playwright) we cannot
-        scrape it reliably.
+    def _scrape_klcc(self) -> list[dict]:
+        """KLCC Convention Centre events via Playwright.
 
-        A previous version of this file shipped a hardcoded list of events
-        manually copied from KLCC's site at some point. That list went
-        stale (e.g. surfacing IGEM 2026 with dates that no longer match
-        KLCC's actual calendar). Stale curation pretending to be fresh
-        scraping is worse than no data, so the list was removed on
-        2026-05-27.
+        KLCC's /whats-on page is a JavaScript-rendered SPA. We render it
+        with Chromium, wait for event cards to load, then parse them.
 
-        TODO: revisit with Playwright + a per-event website-cross-check
-        in the medium-scope wedge. Until then, KLCC trade-show coverage
-        comes only via Eventbrite when an event also lists there.
+        If DISABLE_PLAYWRIGHT=1 is set, this returns [] silently.
+        If Playwright isn't installed, returns [] with a warning.
         """
-        logger.info(
-            "KLCC scraper: skipped. Site requires JS rendering; hardcoded "
-            "list was removed on 2026-05-27 to avoid stale data."
-        )
-        return []
+        import os
+        if os.environ.get("DISABLE_PLAYWRIGHT", "").strip() in ("1", "true", "yes"):
+            logger.info("KLCC: DISABLE_PLAYWRIGHT set, skipping.")
+            return []
+
+        try:
+            from playwright.sync_api import sync_playwright
+        except ImportError:
+            logger.warning("KLCC: playwright not installed, skipping.")
+            return []
+
+        events = []
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                ctx = browser.new_context(
+                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0",
+                    viewport={"width": 1280, "height": 1200},
+                    locale="en-US",
+                )
+                page = ctx.new_page()
+                page.goto(
+                    "https://www.klccconventioncentre.com/whats-on",
+                    wait_until="domcontentloaded",
+                    timeout=30000,
+                )
+                page.wait_for_timeout(8000)
+                for _ in range(3):
+                    page.evaluate("window.scrollBy(0, 800)")
+                    page.wait_for_timeout(1500)
+
+                # KLCC renders event cards as clickable blocks with title + date text
+                cards = page.eval_on_selector_all(
+                    "a[href]",
+                    """els => els.map(e => ({
+                        href: e.href,
+                        text: e.innerText.trim()
+                    })).filter(e => e.text.length > 15 && e.text.length < 500)""",
+                )
+                browser.close()
+
+            # Parse cards for date + title
+            seen_titles = set()
+            for card in cards:
+                text = card.get("text", "")
+                href = card.get("href", "")
+                if not text:
+                    continue
+                # Skip nav links
+                if any(s in href.lower() for s in [
+                    "facebook", "instagram", "linkedin", "twitter",
+                    "mailto:", "tel:", "#", "javascript:",
+                    "/privacy", "/terms", "/contact",
+                ]):
+                    continue
+
+                # Extract date: try "Mon DD-DD, YYYY" or "DD Mon YYYY" or "DD/MM/YYYY"
+                start_dt = None
+                # Pattern: "Sep 29 - Oct 01, 2026" or "Oct 04, 2026"
+                m = re.search(r"([A-Za-z]+)\s+(\d{1,2})(?:\s*[-–]\s*(?:[A-Za-z]+\s+)?\d{1,2})?,?\s*(\d{4})", text)
+                if m:
+                    month_str, day_str, year_str = m.groups()
+                    month = self._month_to_num(month_str)
+                    if month:
+                        try:
+                            start_dt = datetime(int(year_str), month, int(day_str))
+                        except ValueError:
+                            pass
+                # Fallback: DD/MM/YYYY
+                if not start_dt:
+                    dm = re.search(r"(\d{1,2})/(\d{1,2})/(\d{4})", text)
+                    if dm:
+                        d, mo, y = dm.groups()
+                        try:
+                            start_dt = datetime(int(y), int(mo), int(d))
+                        except ValueError:
+                            pass
+
+                if not start_dt:
+                    continue
+
+                # Title: first line
+                lines = [l.strip() for l in text.split("\n") if l.strip()]
+                title = lines[0] if lines else text[:100]
+                if not title or len(title) < 5:
+                    continue
+                title_key = title.lower().strip()
+                if title_key in seen_titles:
+                    continue
+                seen_titles.add(title_key)
+
+                events.append(self._create_event_dict(
+                    title=title,
+                    description=text[:500],
+                    start_datetime=start_dt,
+                    end_datetime=None,
+                    location="KLCC Convention Centre, Kuala Lumpur",
+                    organiser="KLCC Convention Centre",
+                    source_url=href if href.startswith("http") else "https://www.klccconventioncentre.com/whats-on",
+                    categories=[self._categorize(title)],
+                ))
+
+        except Exception as e:
+            logger.error(f"KLCC Playwright scrape failed: {e}")
+
+        logger.info(f"KLCC: found {len(events)} events")
+        return events
 
     def _parse_klcc_date(self, text: str) -> Optional[tuple]:
         """Parse KLCC date formats like 'May 12-13, 2026' or 'Jun 03-05, 2026'."""

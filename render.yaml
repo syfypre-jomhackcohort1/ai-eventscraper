@@ -2,12 +2,12 @@ services:
   - type: web
     name: ai-eventscraper
     runtime: python
-    # On Render Free tier (512 MB RAM), Chromium will OOM during a
-    # scrape run. Build skips the Chromium install when DISABLE_PLAYWRIGHT
-    # is set; the runtime code paths short-circuit the same way.
+    # Playwright Chromium is installed unconditionally. If the Free tier
+    # OOMs during scrape runs, set DISABLE_PLAYWRIGHT=1 in env vars to
+    # skip Chromium-dependent scrapers (KLCC, FB Wall, Peatix) at runtime.
     buildCommand: |
       pip install -r requirements.txt
-      if [ "$DISABLE_PLAYWRIGHT" != "1" ]; then python -m playwright install --with-deps chromium; fi
+      python -m playwright install --with-deps chromium
       cd frontend && npm install && npm run build
     startCommand: python -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT
     envVars:
