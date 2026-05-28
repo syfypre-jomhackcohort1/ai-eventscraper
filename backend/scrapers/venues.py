@@ -20,6 +20,7 @@ class VenueScraper(BaseScraper):
         events = []
         events.extend(self._scrape_mitec())
         events.extend(self._scrape_klcc())
+        events.extend(self._scrape_wtc())
         logger.info(f"Venues total: {len(events)} events")
         return events
 
@@ -209,8 +210,6 @@ class VenueScraper(BaseScraper):
     # ------------------------------------------------------------------
     # KLCC Convention Centre
     # ------------------------------------------------------------------
-
-    def _scrape_klcc(self) -> list[dict]:
         """KLCC Convention Centre events.
 
         KLCC's /whats-on page is a JavaScript-rendered SPA - httpx returns
@@ -275,6 +274,80 @@ class VenueScraper(BaseScraper):
                     pass
 
         return None
+
+    # ------------------------------------------------------------------
+    # World Trade Centre Kuala Lumpur (worldtradecentrekl.com/events/)
+    # ------------------------------------------------------------------
+
+    def _scrape_wtc(self) -> list[dict]:
+        """Scrape WTC KL events.
+
+        Page is fully server-rendered. Each event is wrapped in
+        <div class="event-card"> with:
+          <a class="event-thumb" href="<event-detail-url>">
+          <h2 class="event-title">TITLE</h2>
+          <span class="event-date">DD/MM/YYYY</span>
+          <p class="event-overview">DESCRIPTION</p>
+        """
+        events = []
+        url = "https://worldtradecentrekl.com/events/"
+        html = self._fetch_html(url)
+        if not html:
+            logger.warning("WTC: could not fetch page")
+            return []
+
+        soup = self._parse_html(html)
+        for card in soup.select(".event-card"):
+            title_el = card.select_one(".event-title")
+            date_el = card.select_one(".event-date")
+            link_el = card.select_one("a[href]")
+            desc_el = card.select_one(".event-overview")
+
+            if not title_el or not date_el:
+                continue
+            title = title_el.get_text(" ", strip=True)
+            if not title or len(title) < 4:
+                continue
+            date_text = date_el.get_text(" ", strip=True)
+            start_dt = self._parse_wtc_date(date_text)
+            if not start_dt:
+                continue
+
+            # Skip past events. The page also has past events with the
+            # "Past" badge instead of "Upcoming".
+            footer = card.select_one(".event-footer-meta")
+            if footer and "past" in footer.get_text(" ", strip=True).lower():
+                continue
+
+            source_url = link_el.get("href", url) if link_el else url
+            description = desc_el.get_text(" ", strip=True) if desc_el else ""
+
+            events.append(self._create_event_dict(
+                title=title,
+                description=description[:500],
+                start_datetime=start_dt,
+                end_datetime=None,
+                location="World Trade Centre Kuala Lumpur",
+                organiser="WTC KL",
+                source_url=source_url,
+                categories=[self._categorize(title)],
+            ))
+
+        events = self._deduplicate(events)
+        logger.info(f"WTC KL: found {len(events)} events")
+        return events
+
+    @staticmethod
+    def _parse_wtc_date(text: str) -> Optional[datetime]:
+        """Parse 'DD/MM/YYYY' (the format WTC uses)."""
+        m = re.search(r"(\d{1,2})/(\d{1,2})/(\d{4})", text)
+        if not m:
+            return None
+        day, month, year = m.groups()
+        try:
+            return datetime(int(year), int(month), int(day))
+        except ValueError:
+            return None
 
     # ------------------------------------------------------------------
     # Utilities

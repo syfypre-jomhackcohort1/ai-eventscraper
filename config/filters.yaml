@@ -12,7 +12,7 @@
 
 topics:
   AI:
-    keywords: ["artificial intelligence", "AI", "machine learning", "ML", "LLM", "generative AI", "deep learning", "data science", "neural network", "agentic", "agent", "RAG", "claude code", "coding"]
+    keywords: ["artificial intelligence", "AI", "machine learning", "ML", "LLM", "generative AI", "deep learning", "data science", "neural network", "agentic", "agent", "RAG", "claude code", "coding", "intelligent technology"]
     color: "#2563EB"
   Cybersecurity:
     keywords: ["cybersecurity", "cyber security", "infosec", "hacking", "CTF", "penetration testing", "CISSP", "SOC", "OWASP", "vulnerability"]
