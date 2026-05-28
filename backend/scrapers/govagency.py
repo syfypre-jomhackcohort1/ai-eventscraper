@@ -11,6 +11,13 @@ logger = logging.getLogger(__name__)
 
 
 # Each agency entry: (name, urls_to_try, default_categories)
+# Agencies removed from this list (handled by dedicated scrapers or consistently blocked):
+#   INSKEN  -> backend/scrapers/orgs/insken.py (dedicated scraper, correct URL)
+#   KUSKOP  -> backend/scrapers/orgs/kuskop.py (dedicated scraper)
+#   SME Corp -> 403 Forbidden on all attempts
+#   MPC      -> 403 Forbidden on all attempts
+#   KESUMA   -> DNS doesn't resolve (domain doesn't exist)
+#   Bursa    -> 403 Forbidden on all attempts
 AGENCIES = [
     {
         "name": "MDEC",
@@ -37,35 +44,11 @@ AGENCIES = [
         "categories": ["Cybersecurity"],
     },
     {
-        "name": "INSKEN",
-        "urls": [
-            "https://www.insken.gov.my",
-            "https://www.insken.gov.my/program",
-            "https://www.insken.gov.my/events",
-        ],
-        "categories": ["Entrepreneurship"],
-    },
-    {
-        "name": "SME Corp",
-        "urls": [
-            "https://www.smecorp.gov.my/index.php/en/",
-        ],
-        "categories": ["Entrepreneurship"],
-    },
-    {
         "name": "MATRADE",
         "urls": [
             "https://www.matrade.gov.my",
         ],
         "categories": ["Entrepreneurship"],
-    },
-    {
-        "name": "MPC",
-        "urls": [
-            "https://www.mpc.gov.my",
-            "https://www.mpc.gov.my/events",
-        ],
-        "categories": ["Tech"],
     },
     {
         "name": "MIMOS",
@@ -88,27 +71,6 @@ AGENCIES = [
             "https://www.bnm.gov.my/news-and-events",
         ],
         "categories": ["Investment"],
-    },
-    {
-        "name": "Bursa Malaysia",
-        "urls": [
-            "https://www.bursamalaysia.com/market_information/news_and_announcements",
-        ],
-        "categories": ["Investment"],
-    },
-    {
-        "name": "KUSKOP",
-        "urls": [
-            "https://www.kuskop.gov.my",
-        ],
-        "categories": ["Entrepreneurship"],
-    },
-    {
-        "name": "KESUMA",
-        "urls": [
-            "https://www.kesuma.gov.my",
-        ],
-        "categories": ["Entrepreneurship"],
     },
 ]
 
