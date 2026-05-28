@@ -1,0 +1,118 @@
+# ============================================================
+# KV Events Agent - Source Configuration
+# ============================================================
+# Configure which platforms and search terms to scrape.
+# Customize the location and keywords for your region.
+# ============================================================
+
+# Search parameters used by scrapers
+search:
+  # Location for Eventbrite URL path (e.g. "malaysia--kuala-lumpur", "singapore--singapore", "united-kingdom--london")
+  eventbrite_location: "malaysia--kuala-lumpur"
+
+  # Meetup location param (e.g. "my--kualaLumpur", "sg--singapore", "gb--london")
+  meetup_location: "my--kualaLumpur"
+
+  # Luma geo coordinates for your city (latitude, longitude)
+  luma_latitude: "3.1390"
+  luma_longitude: "101.6869"
+
+  # Keywords to search across all platforms
+  keywords:
+    - "tech"
+    - "ai"
+    - "cybersecurity"
+    - "blockchain"
+    - "startup"
+    - "investment"
+
+# ============================================================
+# Scraper toggles — enable/disable individual sources
+# ============================================================
+scrapers:
+  eventbrite:
+    enabled: true
+  meetup:
+    enabled: true
+  luma:
+    enabled: true
+  eventsize:
+    enabled: true
+  social_media:
+    enabled: true
+  gov_agency:
+    enabled: true
+  fb_wall:
+    enabled: true
+
+# ============================================================
+# Facebook Page wall scraper config
+# ============================================================
+# Each tracked agency Page is rendered with Playwright at every scrape
+# run (12am, 8am, 4pm MYT per scheduler.py). Posts containing event
+# keywords AND an explicit date are saved as events.
+#
+# Add a new agency by appending to the fb_pages list with a `name` and
+# `url` field. The URL must be a full https://web.facebook.com/<handle>
+# pointing at the Page wall (NOT /events).
+fb_pages:
+  - name: INSKEN
+    url: https://web.facebook.com/inskenofficial
+  - name: MDEC
+    url: https://web.facebook.com/MyMDEC
+  - name: MCMC
+    url: https://web.facebook.com/SuruhanjayaKomunikasiMultimediaMalaysia
+  - name: CSM
+    url: https://web.facebook.com/CyberSecurityMalaysia
+  - name: HRD Corp
+    url: https://web.facebook.com/hrd.corp
+  - name: MRANTI
+    url: https://web.facebook.com/MRANTIMalaysia
+  - name: MATRADE
+    url: https://web.facebook.com/matrade.gov.my
+  - name: MyDigital
+    url: https://web.facebook.com/mymydigital
+  - name: MIMOS
+    url: https://web.facebook.com/MIMOSBerhad
+  - name: SME Corp
+    url: https://web.facebook.com/SMECorpMsia
+  - name: SC
+    url: https://web.facebook.com/SecuritiesCommissionMY
+  - name: BNM
+    url: https://web.facebook.com/BankNegaraMalaysia
+  - name: SKM
+    url: https://web.facebook.com/skmgovmy
+  - name: KUSKOP
+    url: https://web.facebook.com/KUSKOP.MALAYSIA
+  - name: MITI
+    url: https://web.facebook.com/MITIMalaysia
+  - name: MPC
+    url: https://web.facebook.com/MPCMalaysia
+
+# ============================================================
+# Instagram profiles
+# ============================================================
+# Scraped via the InstagramScraper, which uses a pluggable backend
+# (Apify or HikerAPI) controlled by env vars. See
+# backend/scrapers/instagram/__init__.py.
+#
+# Add a new IG profile by appending {username: <handle>}. Strip the @.
+# Backend free-tier capacity is finite - keep the list focused on
+# accounts that ACTUALLY post events, not feel-good marketing reels.
+ig_profiles:
+  - username: asb.hive
+  - username: mymdec
+  - username: insken_official
+  - username: hrdcorp
+  - username: mranti.malaysia
+  - username: cybersecurity_malaysia
+  - username: matrade.officialpage
+  - username: mymydigital
+  - username: mimosberhad
+  - username: smecorpmalaysia
+  - username: securitiescommissionmalaysia
+  - username: banknegara_official
+  - username: skmgovmy
+  - username: kuskop_malaysia
+  - username: miti_malaysia
+  - username: mpcmalaysia

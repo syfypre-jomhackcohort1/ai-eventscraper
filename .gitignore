@@ -1,0 +1,59 @@
+# Database
+*.db
+*.sqlite3
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.venv/
+venv/
+env/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Environment variables (contains API keys - NEVER commit)
+.env
+.env.local
+.env.*.local
+.env.production
+.env.dev
+
+# DB backups created during development sessions
+*.db.bak
+*.db.bak.*
+kv_events.db.bak*
+
+# Logs and rescrape outputs
+rescrape.log
+*.log
+
+# Common one-off / probe / trace scripts (never commit these)
+probe_*.py
+trace_*.py
+run_*.py
+debug_*.py
+verify_*.py
+inspect_*.py
+fix_*.py
+check_*.py
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Kiro workspace
+.kiro/

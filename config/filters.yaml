@@ -1,0 +1,73 @@
+# ============================================================
+# KV Events Agent - Filter Configuration
+# ============================================================
+# Customize this file to change what events are collected.
+# - topics: define your interest categories and keywords
+# - locations: define which areas to include
+#
+# Single source of truth: /api/categories reads this file,
+# and the frontend reads /api/categories. Edit colors and
+# keywords here and they propagate end-to-end.
+# ============================================================
+
+topics:
+  AI:
+    keywords: ["artificial intelligence", "AI", "machine learning", "ML", "LLM", "generative AI", "deep learning", "data science", "neural network", "agentic", "agent", "RAG", "claude code", "coding"]
+    color: "#2563EB"
+  Cybersecurity:
+    keywords: ["cybersecurity", "cyber security", "infosec", "hacking", "CTF", "penetration testing", "CISSP", "SOC", "OWASP", "vulnerability"]
+    color: "#DC2626"
+  Anti-Scam:
+    keywords: ["anti-scam", "anti scam", "scam awareness", "fraud", "phishing", "online safety", "scam prevention"]
+    color: "#B91C1C"
+  Blockchain:
+    keywords: ["blockchain", "Web3", "web 3", "NFT", "DeFi", "crypto", "cryptocurrency", "smart contract", "DAO", "Solana", "Ethereum"]
+    color: "#7C3AED"
+  Investment:
+    keywords: ["investment", "investing", "stock market", "equity", "venture capital", "VC", "angel investor", "IPO", "Bursa", "funding"]
+    color: "#16A34A"
+  Trading:
+    keywords: ["trading", "forex", "futures", "options", "technical analysis", "algorithmic trading", "day trading"]
+    color: "#15803D"
+  Fintech:
+    keywords: ["fintech", "financial technology", "digital banking", "e-wallet", "payments", "open banking", "neobank"]
+    color: "#0EA5E9"
+  Entrepreneurship:
+    keywords: ["entrepreneurship", "entrepreneur", "startup", "founder", "SME", "SMEs", "business", "pitch", "accelerator", "incubator", "bootcamp", "masterclass", "lead generation", "productivity", "coaching", "mentoring", "networking event", "open day"]
+    color: "#EA580C"
+  Hackathon:
+    keywords: ["hackathon", "hack night", "code jam", "ideathon", "buildathon", "datathon"]
+    color: "#F59E0B"
+  Social Enterprise:
+    keywords: ["social enterprise", "social impact", "non-profit", "NGO", "sustainability", "ESG", "social good", "impact investing"]
+    color: "#059669"
+
+# ============================================================
+# Location Filter
+# ============================================================
+# Events must match one of these locations OR be virtual/online.
+# Customize for your city/region.
+locations:
+  include:
+    - "kuala lumpur"
+    - "kl"
+    - "selangor"
+    - "klang valley"
+    - "petaling jaya"
+    - "pj"
+    - "cyberjaya"
+    - "putrajaya"
+    - "shah alam"
+    - "subang"
+    - "bangsar"
+    - "klcc"
+    - "mont kiara"
+    - "damansara"
+  virtual_keywords:
+    - "online"
+    - "virtual"
+    - "webinar"
+    - "zoom"
+    - "teams"
+    - "remote"
+    - "livestream"
