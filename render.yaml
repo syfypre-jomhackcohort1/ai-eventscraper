@@ -2,14 +2,13 @@ services:
   - type: web
     name: ai-eventscraper
     runtime: python
-    # Playwright Chromium is installed at RUNTIME (first scrape run) rather
-    # than build time, because Render Free tier build containers sometimes
-    # fail the heavy Chromium download. The runtime install adds ~60s to
-    # the first scrape but succeeds reliably.
+    # Render Free tier does NOT support Playwright (no root access for
+    # system deps). Set DISABLE_PLAYWRIGHT=1 in env vars. KLCC scraping
+    # requires Starter ($7/mo) or higher.
     buildCommand: |
       pip install -r requirements.txt
       cd frontend && npm install && npm run build
-    startCommand: python -m playwright install --with-deps chromium && python -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    startCommand: python -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
         value: "3.11"
