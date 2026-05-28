@@ -21,6 +21,33 @@ from backend.database import init_db
 from backend.api import events
 from backend.scheduler import start_scheduler, stop_scheduler
 
+# Simple visitor tracking: log unique IPs per day. No PII stored beyond
+# the IP + timestamp. Viewable via /api/stats endpoint.
+_daily_visitors: dict[str, set[str]] = {}  # date_str -> set of IPs
+
+
+class VisitorTrackingMiddleware:
+    """ASGI middleware that logs unique visitor IPs per day."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            # Extract client IP (Render sets X-Forwarded-For behind their proxy)
+            headers = dict(scope.get("headers", []))
+            forwarded = headers.get(b"x-forwarded-for", b"").decode()
+            client_ip = forwarded.split(",")[0].strip() if forwarded else (
+                scope.get("client", ("unknown", 0))[0]
+            )
+            from datetime import date
+            today = date.today().isoformat()
+            if today not in _daily_visitors:
+                _daily_visitors.clear()  # only keep today to save memory
+                _daily_visitors[today] = set()
+            _daily_visitors[today].add(client_ip)
+        await self.app(scope, receive, send)
+
 # Quiet down httpx INFO-level request logs - they include full URLs with
 # query string tokens. WARNING+ still surface failures we care about.
 logging.basicConfig(level=logging.INFO)
@@ -70,6 +97,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Visitor tracking (before routes so it catches all requests)
+app.add_middleware(VisitorTrackingMiddleware)
+
 # Include routers
 app.include_router(events.router, prefix="/api", tags=["events"])
 
@@ -98,6 +128,22 @@ def root():
 @app.api_route("/health", methods=["GET", "HEAD"])
 def health():
     return {"status": "healthy"}
+
+
+@app.get("/api/stats")
+def get_stats():
+    """Simple visitor stats. Returns unique visitor count for today.
+    No PII beyond IP addresses (which Render logs anyway).
+    Useful for showing traction to potential clients.
+    """
+    from datetime import date
+    today = date.today().isoformat()
+    visitors_today = _daily_visitors.get(today, set())
+    return {
+        "date": today,
+        "unique_visitors_today": len(visitors_today),
+        "note": "Resets on each deploy (Free tier has no persistent storage).",
+    }
 
 
 # Serve static frontend files (built React app) — must be after API routes
