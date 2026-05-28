@@ -256,39 +256,86 @@ class VenueScraper(BaseScraper):
 
             # Parse alternating title/date lines from the rendered text.
             # Pattern: a line that looks like a date follows an event title.
-            # Date format: "Mon DD-DD, YYYY" or "Mon DD, YYYY"
+            # Date formats:
+            #   "Jun 03-05, 2026"        - same-month range
+            #   "Sep 29 - Oct 01, 2026"  - cross-month range
+            #   "Jun 13, 2026"           - single day
             lines = [l.strip() for l in text.split("\n") if l.strip()]
-            date_re = re.compile(
-                r"^([A-Z][a-z]{2})\s+(\d{1,2})(?:\s*[-–]\s*\d{1,2})?,?\s*(\d{4})$"
+            # Three patterns, tried in order most-specific first:
+            #   (a) cross-month: "Sep 29 - Oct 01, 2026"
+            #   (b) same-month range: "Jun 03-05, 2026"
+            #   (c) single day: "Jun 13, 2026"
+            cross_month_re = re.compile(
+                r"^([A-Z][a-z]{2})\s+(\d{1,2})\s*[-–]\s*([A-Z][a-z]{2})\s+(\d{1,2}),?\s*(\d{4})$"
             )
+            same_month_re = re.compile(
+                r"^([A-Z][a-z]{2})\s+(\d{1,2})\s*[-–]\s*(\d{1,2}),?\s*(\d{4})$"
+            )
+            single_day_re = re.compile(
+                r"^([A-Z][a-z]{2})\s+(\d{1,2}),?\s*(\d{4})$"
+            )
+
+            def _parse_klcc_line(s: str):
+                """Try the three patterns. Return (start_dt, end_dt) or None."""
+                m = cross_month_re.match(s)
+                if m:
+                    m1, d1, m2, d2, y = m.groups()
+                    mon1 = self._month_to_num(m1)
+                    mon2 = self._month_to_num(m2)
+                    if mon1 and mon2:
+                        try:
+                            start = datetime(int(y), mon1, int(d1))
+                            end = datetime(int(y), mon2, int(d2))
+                            # Wrap to next year if end month < start month
+                            if mon2 < mon1:
+                                end = datetime(int(y) + 1, mon2, int(d2))
+                            return start, end
+                        except ValueError:
+                            return None
+                m = same_month_re.match(s)
+                if m:
+                    mo, d1, d2, y = m.groups()
+                    mon = self._month_to_num(mo)
+                    if mon:
+                        try:
+                            return (
+                                datetime(int(y), mon, int(d1)),
+                                datetime(int(y), mon, int(d2)),
+                            )
+                        except ValueError:
+                            return None
+                m = single_day_re.match(s)
+                if m:
+                    mo, d, y = m.groups()
+                    mon = self._month_to_num(mo)
+                    if mon:
+                        try:
+                            return (datetime(int(y), mon, int(d)), None)
+                        except ValueError:
+                            return None
+                return None
+
             seen_titles = set()
             i = 0
             while i < len(lines) - 1:
-                # Check if lines[i+1] is a date
-                m = date_re.match(lines[i + 1])
-                if m:
+                parsed = _parse_klcc_line(lines[i + 1])
+                if parsed:
+                    start_dt, end_dt = parsed
                     title = lines[i]
-                    month_str, day_str, year_str = m.groups()
-                    month = self._month_to_num(month_str)
-                    if month and title and len(title) > 5:
-                        try:
-                            start_dt = datetime(int(year_str), month, int(day_str))
-                        except ValueError:
-                            i += 1
-                            continue
+                    if title and len(title) > 5:
                         title_key = title.lower().strip()
                         if title_key not in seen_titles:
                             seen_titles.add(title_key)
                             events.append(self._create_event_dict(
                                 title=title,
                                 start_datetime=start_dt,
-                                end_datetime=None,
+                                end_datetime=end_dt,
                                 location="KLCC Convention Centre, Kuala Lumpur",
                                 organiser="KLCC Convention Centre",
                                 source_url="https://www.klccconventioncentre.com/whats-on",
                                 categories=[self._categorize(title)],
                             ))
-                    i += 2  # skip both title and date line
+                    i += 2
                 else:
                     i += 1
 
