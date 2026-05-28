@@ -2,14 +2,14 @@ services:
   - type: web
     name: ai-eventscraper
     runtime: python
-    # Playwright Chromium is installed unconditionally. If the Free tier
-    # OOMs during scrape runs, set DISABLE_PLAYWRIGHT=1 in env vars to
-    # skip Chromium-dependent scrapers (KLCC, FB Wall, Peatix) at runtime.
+    # Playwright Chromium is installed at RUNTIME (first scrape run) rather
+    # than build time, because Render Free tier build containers sometimes
+    # fail the heavy Chromium download. The runtime install adds ~60s to
+    # the first scrape but succeeds reliably.
     buildCommand: |
       pip install -r requirements.txt
-      python -m playwright install --with-deps chromium
       cd frontend && npm install && npm run build
-    startCommand: python -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    startCommand: python -m playwright install --with-deps chromium && python -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
         value: "3.11"
