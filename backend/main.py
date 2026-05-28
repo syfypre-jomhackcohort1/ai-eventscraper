@@ -74,17 +74,28 @@ app.add_middleware(
 app.include_router(events.router, prefix="/api", tags=["events"])
 
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 def root():
-    """Serve frontend or API info."""
+    """Serve frontend index.html if it was built into static/, otherwise
+    return a JSON sign-of-life. HEAD is supported because Render's free-
+    tier health checks use HEAD requests; without it we'd see noisy 405s
+    in the logs.
+    """
     static_dir = Path(__file__).parent.parent / "static"
     index_file = static_dir / "index.html"
     if index_file.exists():
         return FileResponse(index_file)
-    return {"message": "KV Events Discovery Agent API", "version": "1.0.0"}
+    return {
+        "message": "AI Eventscraper API",
+        "version": "1.0.0",
+        "note": (
+            "Frontend not found in static/ - "
+            "run 'cd frontend && npm run build' or check the Render build log."
+        ),
+    }
 
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health():
     return {"status": "healthy"}
 
@@ -92,16 +103,31 @@ def health():
 # Serve static frontend files (built React app) — must be after API routes
 static_dir = Path(__file__).parent.parent / "static"
 if static_dir.exists():
-    app.mount("/assets", StaticFiles(directory=static_dir / "assets"), name="assets")
+    assets_dir = static_dir / "assets"
+    if assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
     # Catch-all for SPA routing — serve index.html for non-API, non-asset routes
     @app.get("/{full_path:path}")
     def serve_spa(full_path: str):
-        """Serve the SPA for any non-API route."""
+        """Serve the SPA for any non-API route. Defends against missing
+        index.html (e.g. if the frontend build silently failed) by falling
+        back to JSON."""
         file_path = static_dir / full_path
         if file_path.exists() and file_path.is_file():
             return FileResponse(file_path)
-        return FileResponse(static_dir / "index.html")
+        index_file = static_dir / "index.html"
+        if index_file.exists():
+            return FileResponse(index_file)
+        return {
+            "message": "AI Eventscraper API",
+            "note": "Frontend not built. API endpoints under /api/ still work.",
+        }
+else:
+    logger.warning(
+        "static/ directory not found - frontend won't be served. "
+        "Build it with: cd frontend && npm install && npm run build"
+    )
 
 
 if __name__ == "__main__":
