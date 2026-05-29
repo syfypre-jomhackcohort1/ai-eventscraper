@@ -400,6 +400,9 @@ class VenueScraper(BaseScraper):
           <h2 class="event-title">TITLE</h2>
           <span class="event-date">DD/MM/YYYY</span>
           <p class="event-overview">DESCRIPTION</p>
+
+        The listing card only shows the start date. We fetch each event's
+        detail page to get the end date from <p class="evp-date">.
         """
         events = []
         url = "https://worldtradecentrekl.com/events/"
@@ -425,8 +428,7 @@ class VenueScraper(BaseScraper):
             if not start_dt:
                 continue
 
-            # Skip past events. The page also has past events with the
-            # "Past" badge instead of "Upcoming".
+            # Skip past events
             footer = card.select_one(".event-footer-meta")
             if footer and "past" in footer.get_text(" ", strip=True).lower():
                 continue
@@ -434,11 +436,16 @@ class VenueScraper(BaseScraper):
             source_url = link_el.get("href", url) if link_el else url
             description = desc_el.get_text(" ", strip=True) if desc_el else ""
 
+            # Fetch detail page to get end date
+            end_dt = None
+            if source_url and source_url.startswith("http") and source_url != url:
+                end_dt = self._fetch_wtc_end_date(source_url)
+
             events.append(self._create_event_dict(
                 title=title,
                 description=description[:500],
                 start_datetime=start_dt,
-                end_datetime=None,
+                end_datetime=end_dt,
                 location="World Trade Centre Kuala Lumpur",
                 organiser="WTC KL",
                 source_url=source_url,
@@ -448,6 +455,26 @@ class VenueScraper(BaseScraper):
         events = self._deduplicate(events)
         logger.info(f"WTC KL: found {len(events)} events")
         return events
+
+    def _fetch_wtc_end_date(self, detail_url: str) -> Optional[datetime]:
+        """Fetch a WTC event detail page and extract the end date from
+        <p class="evp-date">From DD/MM/YYYY To DD/MM/YYYY</p>."""
+        try:
+            html = self._fetch_html(detail_url)
+            if not html:
+                return None
+            soup = self._parse_html(html)
+            date_el = soup.select_one("p.evp-date")
+            if not date_el:
+                return None
+            text = date_el.get_text(" ", strip=True)
+            # Pattern: "From 29/05/2026 To 07/06/2026"
+            m = re.search(r"To\s+(\d{1,2}/\d{1,2}/\d{4})", text)
+            if m:
+                return self._parse_wtc_date(m.group(1))
+        except Exception as e:
+            logger.debug(f"WTC: failed to fetch end date from {detail_url}: {e}")
+        return None
 
     @staticmethod
     def _parse_wtc_date(text: str) -> Optional[datetime]:
